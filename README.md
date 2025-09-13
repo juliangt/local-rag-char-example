@@ -56,10 +56,10 @@ Before you begin, ensure you have the following installed:
 3.  **Set up Python Environment**: It is highly recommended to use a virtual environment.
     ```bash
     # Create a virtual environment
-    python3 -m venv rag-env
+    python3 -m venv env
 
     # Activate the environment
-    source rag-env/bin/activate
+    source env/bin/activate
     ```
 
 4.  **Install Dependencies**: Install all the required Python packages from the `requirements.txt` file.
