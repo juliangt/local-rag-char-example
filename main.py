@@ -18,6 +18,35 @@ class RAGManager:
         self.vector_store = None
         self.chain = None
 
+        try:
+            if not os.path.exists(self.file_path):
+                raise FileNotFoundError(f"The file '{self.file_path}' does not exist.")
+
+            # Validate file format if necessary (e.g., check extension)
+            supported_extensions = ['.txt']
+            if not any(self.file_path.endswith(ext) for ext in supported_extensions):
+                raise ValueError(f"Unsupported file format. Please use one of {supported_extensions}.")
+
+            # Placeholder for model validation
+            # In a real-world scenario, you would check if the model files exist
+            # or if the model names are valid by querying an API or a local registry.
+            print(f"Attempting to initialize with embedding model: {self.embedding_model}")
+            print(f"Attempting to initialize with chat model: {self.chat_model}")
+
+        except (FileNotFoundError, ValueError) as e:
+            self._log_error(e)
+            print(f"Error: {e}")
+            raise
+        except Exception as e:
+            self._log_error(e)
+            print(f"An unexpected error occurred during initialization: {e}")
+            raise
+
+    def _log_error(self, error):
+        with open("error.log", "a") as f:
+            f.write(f"\n--- {type(error).__name__} ---\n")
+            f.write(str(error))
+
     def _create_index(self):
         print(f"Creating index from {self.file_path} using {self.embedding_model}...")
         loader = TextLoader(self.file_path)
@@ -83,35 +112,63 @@ def main():
     os.makedirs("indexes", exist_ok=True)
 
     parser = argparse.ArgumentParser(description="Chat with a document using RAG.")
-    parser.add_argument("file_name", type=str, help="Name of the text file in the 'docs' directory.")
+    parser.add_argument("file_name", type=str, nargs='?', default=None, help="Name or path of the text file.")
     parser.add_argument("--index_path", type=str, help="Path to the FAISS index directory. Overrides default behavior.")
     parser.add_argument("--embedding_model", type=str, default="embeddinggemma", help="Name of the Ollama model to use for embeddings.")
     parser.add_argument("--chat_model", type=str, default="gemma3:270m", help="Name of the Ollama model to use for chat.")
     args = parser.parse_args()
 
-    file_path = os.path.join("docs", args.file_name)
+    file_name = args.file_name
+    if not file_name:
+        files = [f for f in os.listdir("docs") if f.endswith('.txt')]
+        if not files:
+            print("No text files found in the 'docs' directory.")
+            return
+        elif len(files) == 1:
+            file_name = files[0]
+        else:
+            print("Please choose a file to chat with:")
+            for i, f in enumerate(files):
+                print(f"[{i+1}] {f}")
+            while True:
+                try:
+                    choice = int(input("Enter the number of the file: "))
+                    if 1 <= choice <= len(files):
+                        file_name = files[choice-1]
+                        break
+                    else:
+                        print("Invalid number.")
+                except ValueError:
+                    print("Please enter a number.")
 
+    file_path = file_name
     if not os.path.exists(file_path):
-        error_message = f"Error: The file '{args.file_name}' was not found in the 'docs' directory."
-        if os.path.exists(args.file_name):
-            error_message += f"\nHint: A file named '{args.file_name}' was found in the current directory. Please move it to the 'docs' directory to use it."
-        print(error_message)
-        return
+        file_path = os.path.join("docs", file_name)
+        if not os.path.exists(file_path):
+            print(f"Error: The file '{file_name}' was not found in the current directory or in the 'docs' directory.")
+            return
 
     index_path = args.index_path
     if not index_path:
-        base_name = os.path.splitext(args.file_name)[0]
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
         index_path = os.path.join("indexes", f"{base_name}_faiss_index")
 
-    rag_manager = RAGManager(
-        file_path=file_path, 
-        index_path=index_path, 
-        embedding_model=args.embedding_model,
-        chat_model=args.chat_model
-    )
+    try:
+        rag_manager = RAGManager(
+            file_path=file_path, 
+            index_path=index_path, 
+            embedding_model=args.embedding_model,
+            chat_model=args.chat_model
+        )
+    except (FileNotFoundError, ValueError):
+        return  # Exit if initialization fails
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return
+
     rag_manager.setup()
 
-    print("\nChat with your document! Type 'exit' to quit.")
+    print(f"\nChat with {os.path.basename(file_path)}! Type 'exit' to quit.")
     chat_history = []
     while True:
         try:
@@ -128,6 +185,8 @@ def main():
         except (KeyboardInterrupt, EOFError):
             print("\nExiting chat.")
             break
+
+
 
 if __name__ == "__main__":
     main()
