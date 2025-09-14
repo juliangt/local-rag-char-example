@@ -1,0 +1,23 @@
+# Configuration for the RAG system
+
+# Paths
+llm_model_path: 'gemma3:270m'
+embedding_model_path: 'embeddinggemma'
+index_path: './indexes'
+docs_path: './docs'
+
+# RAG parameters
+chunk_size: 1024
+chunk_overlap: 100
+k_retriever: 4
+
+# Chat history
+replay_history: True
+max_replay_history: 5
+
+# LLM parameters
+temperature: 0.7
+max_new_tokens: 512
+n_ctx: 4096
+n_gpu_layers: 0
+verbose: False

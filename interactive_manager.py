@@ -1,5 +1,6 @@
 import os
 import shutil
+from config import config
 
 class InteractiveManager:
     def __init__(self, rag_manager):
@@ -19,8 +20,10 @@ class InteractiveManager:
                 else:
                     answer = self.rag_manager.ask(query, self.chat_history)
                     print(f"\nAI: {answer}")
-                    if "The index is not set up" not in answer:
+                    if "The index is not set up" not in answer and config['replay_history']:
                         self.chat_history.append((query, answer))
+                        if len(self.chat_history) > config['max_replay_history']:
+                            self.chat_history.pop(0)
 
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting chat.")
@@ -36,8 +39,6 @@ class InteractiveManager:
             self.clear_index()
         elif command == '/reindex':
             self.reindex()
-        elif command == '/model':
-            self.switch_model(args)
         elif command == '/help':
             self.show_help()
         else:
@@ -97,7 +98,6 @@ Available commands:
         suggestions = {
             "/clear": "Did you mean /clear?",
             "/reindex": "Did you mean /reindex?",
-            "/model": "Did you mean /model <type> <name>?",
             "/help": "Did you mean /help?",
             "/exit": "Did you mean /exit?",
         }

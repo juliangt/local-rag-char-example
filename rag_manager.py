@@ -7,13 +7,14 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.document_loaders import TextLoader
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+from config import config
 
 class RAGManager:
-    def __init__(self, file_path, index_path, embedding_model="embeddinggemma", chat_model="gemma3:270m"):
+    def __init__(self, file_path, index_path):
         self.file_path = file_path
         self.index_path = index_path
-        self.embedding_model = embedding_model
-        self.chat_model = chat_model
+        self.embedding_model = config['embedding_model_path']
+        self.chat_model = config['llm_model_path']
         self.vector_store = None
         self.chain = None
 
@@ -46,7 +47,7 @@ class RAGManager:
         print(f"Creating index from {self.file_path} using {self.embedding_model}...")
         loader = TextLoader(self.file_path)
         documents = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
         docs = text_splitter.split_documents(documents)
         embeddings = OllamaEmbeddings(model=self.embedding_model)
         self.vector_store = FAISS.from_documents(docs, embeddings)
@@ -65,11 +66,12 @@ class RAGManager:
         else:
             self._load_index()
 
-        retriever = self.vector_store.as_retriever()
-        llm = ChatOllama(model=self.chat_model)
+        retriever = self.vector_store.as_retriever(k=config['k_retriever'])
+        llm = ChatOllama(model=self.chat_model, temperature=config['temperature'], max_new_tokens=config['max_new_tokens'], n_ctx=config['n_ctx'], n_gpu_layers=config['n_gpu_layers'], verbose=config['verbose'])
 
         contextualize_q_prompt = ChatPromptTemplate.from_messages([
             ("system", "Given a chat history and the latest user question which might reference context in the chat history, formulate a standalone question which can be understood without the chat history. Do NOT answer the question, just reformulate it if needed and otherwise return it as is."),
+
             MessagesPlaceholder("chat_history"),
             ("human", "{input}"),
         ])

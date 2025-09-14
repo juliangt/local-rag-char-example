@@ -2,23 +2,21 @@ import os
 import argparse
 from rag_manager import RAGManager
 from interactive_manager import InteractiveManager
+from config import config
 
 def main():
-    os.makedirs("docs", exist_ok=True)
-    os.makedirs("indexes", exist_ok=True)
+    os.makedirs(config['docs_path'], exist_ok=True)
+    os.makedirs(config['index_path'], exist_ok=True)
 
     parser = argparse.ArgumentParser(description="Chat with a document using RAG.")
     parser.add_argument("file_name", type=str, nargs='?', default=None, help="Name or path of the text file.")
-    parser.add_argument("--index_path", type=str, help="Path to the FAISS index directory. Overrides default behavior.")
-    parser.add_argument("--embedding_model", type=str, default="embeddinggemma", help="Name of the Ollama model to use for embeddings.")
-    parser.add_argument("--chat_model", type=str, default="gemma3:270m", help="Name of the Ollama model to use for chat.")
     args = parser.parse_args()
 
     file_name = args.file_name
     if not file_name:
-        files = [f for f in os.listdir("docs") if f.endswith('.txt')]
+        files = [f for f in os.listdir(config['docs_path']) if f.endswith('.txt')]
         if not files:
-            print("No text files found in the 'docs' directory.")
+            print(f"No text files found in the '{config['docs_path']}' directory.")
             return
         elif len(files) == 1:
             file_name = files[0]
@@ -39,23 +37,16 @@ def main():
 
     file_path = file_name
     if not os.path.exists(file_path):
-        file_path = os.path.join("docs", file_name)
+        file_path = os.path.join(config['docs_path'], file_name)
         if not os.path.exists(file_path):
-            print(f"Error: The file '{file_name}' was not found in the current directory or in the 'docs' directory.")
+            print(f"Error: The file '{file_name}' was not found in the current directory or in the '{config['docs_path']}' directory.")
             return
 
-    index_path = args.index_path
-    if not index_path:
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        index_path = os.path.join("indexes", f"{base_name}_faiss_index")
+    base_name = os.path.splitext(os.path.basename(file_path))[0]
+    index_path = os.path.join(config['index_path'], f"{base_name}_faiss_index")
 
     try:
-        rag_manager = RAGManager(
-            file_path=file_path, 
-            index_path=index_path, 
-            embedding_model=args.embedding_model,
-            chat_model=args.chat_model
-        )
+        rag_manager = RAGManager(file_path=file_path, index_path=index_path)
     except (FileNotFoundError, ValueError):
         return
     except Exception as e:
