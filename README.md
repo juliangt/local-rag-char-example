@@ -67,12 +67,21 @@ Before you begin, ensure you have the following installed:
     pip install -r requirements.txt
     ```
 
+## Running Tests
+
+To run the unit tests, activate your virtual environment and then execute pytest:
+
+```bash
+source env/bin/activate
+python3 -m pytest tests/
+```
+
 ## Usage
 
 To start a chat session, run the `main.py` script from your terminal, passing the name of the file in the `docs` directory as an argument.
 
 ```bash
-python main.py your_document.txt
+python3 main.py your_document.txt
 ```
 
 - On the first run with a new file, you will see a message indicating that an index is being created. This may take a few moments.
