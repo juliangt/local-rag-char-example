@@ -6,7 +6,7 @@ This project provides a command-line interface (CLI) to chat with your local tex
 
 - **Conversational Chat**: Remembers the context of the conversation for follow-up questions.
 - **Local First**: All components, from embeddings to generation models, run locally via Ollama.
-- **Configurable Models**: Easily switch between different embedding and chat models.
+- **External Configuration**: Configure the system using a `config.yaml` file or environment variables.
 - **Automatic Indexing**: Automatically creates a vector index of your document on the first run and reuses it in subsequent sessions.
 - **Efficient Vector Storage**: Utilizes `FAISS` (Facebook AI Similarity Search) for fast and efficient in-memory vector storage.
 - **Simple Directory Structure**: Organizes documents and indexes into dedicated `docs/` and `indexes/` folders.
@@ -78,23 +78,74 @@ python main.py your_document.txt
 - On the first run with a new file, you will see a message indicating that an index is being created. This may take a few moments.
 - On subsequent runs, the script will load the existing index, and the session will start much faster.
 
-### Command-Line Arguments
+### Interactive Commands
 
-You can customize the models and index paths using optional arguments:
+Once in the chat, you can use the following commands:
 
-- `--embedding_model`: Specify the Ollama model to use for embeddings.
-  ```bash
-  python main.py your_document.txt --embedding_model another-embedding-model
-  ```
-- `--chat_model`: Specify the Ollama model to use for chat.
-  ```bash
-  python main.py your_document.txt --chat_model another-chat-model
-  ```
-- `--index_path`: Specify a custom path to save or load the index.
-  ```bash
-  python main.py your_document.txt --index_path /custom/path/to/index
-  ```
+- `/clear`: Clears the current index. You will need to run `/reindex` to create a new one.
+- `/reindex`: Re-creates the index from the source document.
+- `/help`: Shows the list of available commands.
+- `/exit`: Exits the chat.
+
+## Configuration
+
+The system can be configured using a `config.yaml` file in the project root or by setting environment variables. The configuration is loaded in the following order of precedence:
+
+1.  **Default values** set in the code.
+2.  **`config.yaml` file**.
+3.  **Environment variables** (prefixed with `RAG_`).
+
+### `config.yaml`
+
+A `config.yaml` file is created by default with the following values:
+
+```yaml
+# Configuration for the RAG system
+
+# Paths
+llm_model_path: 'gemma3:270m'
+embedding_model_path: 'embeddinggemma'
+index_path: './indexes'
+docs_path: './docs'
+
+# RAG parameters
+chunk_size: 512
+chunk_overlap: 50
+k_retriever: 4
+
+# Chat history
+replay_history: True
+max_replay_history: 5
+
+# LLM parameters
+temperature: 0.7
+max_new_tokens: 512
+n_ctx: 4096
+n_gpu_layers: 0
+verbose: False
+```
+
+### Environment Variables
+
+You can override any of the configuration values by setting environment variables. The environment variable name is the uppercase version of the configuration key, prefixed with `RAG_`.
+
+| Configuration Key | Environment Variable | Default Value |
+|---|---|---|
+| `llm_model_path` | `RAG_LLM_MODEL_PATH` | `gemma3:270m` |
+| `embedding_model_path` | `RAG_EMBEDDING_MODEL_PATH` | `embeddinggemma` |
+| `index_path` | `RAG_INDEX_PATH` | `./indexes` |
+| `docs_path` | `RAG_DOCS_PATH` | `./docs` |
+| `chunk_size` | `RAG_CHUNK_SIZE` | `512` |
+| `chunk_overlap` | `RAG_CHUNK_OVERLAP` | `50` |
+| `k_retriever` | `RAG_K_RETRIEVER` | `4` |
+| `replay_history` | `RAG_REPLAY_HISTORY` | `True` |
+| `max_replay_history` | `RAG_MAX_REPLAY_HISTORY` | `5` |
+| `temperature` | `RAG_TEMPERATURE` | `0.7` |
+| `max_new_tokens` | `RAG_MAX_NEW_TOKENS` | `512` |
+| `n_ctx` | `RAG_N_CTX` | `4096` |
+| `n_gpu_layers` | `RAG_N_GPU_LAYERS` | `0` |
+| `verbose` | `RAG_VERBOSE` | `False` |
 
 ### Exiting the Chat
 
-To end the chat session, type `exit` and press Enter.
+To end the chat session, type `/exit` and press Enter.
