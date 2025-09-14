@@ -78,10 +78,14 @@ python3 -m pytest tests/
 
 ## Usage
 
-To start a chat session, run the `main.py` script from your terminal, passing the name of the file in the `docs` directory as an argument.
+To start a chat session, run the `main.py` script from your terminal. You can optionally pass the name of a file in the `docs` directory as an argument. If no filename is provided, the system will attempt to use a default document or prompt you to select one.
 
 ```bash
+# Start with a specific document
 python3 main.py your_document.txt
+
+# Start without specifying a document (e.g., for interactive selection or default document)
+python3 main.py
 ```
 
 - On the first run with a new file, you will see a message indicating that an index is being created. This may take a few moments.
@@ -118,8 +122,8 @@ index_path: './indexes'
 docs_path: './docs'
 
 # RAG parameters
-chunk_size: 512
-chunk_overlap: 50
+chunk_size: 1024
+chunk_overlap: 100
 k_retriever: 4
 
 # Chat history
@@ -144,8 +148,8 @@ You can override any of the configuration values by setting environment variable
 | `embedding_model_path` | `RAG_EMBEDDING_MODEL_PATH` | `embeddinggemma` |
 | `index_path` | `RAG_INDEX_PATH` | `./indexes` |
 | `docs_path` | `RAG_DOCS_PATH` | `./docs` |
-| `chunk_size` | `RAG_CHUNK_SIZE` | `512` |
-| `chunk_overlap` | `RAG_CHUNK_OVERLAP` | `50` |
+| `chunk_size` | `RAG_CHUNK_SIZE` | `1024` |
+| `chunk_overlap` | `RAG_CHUNK_OVERLAP` | `100` |
 | `k_retriever` | `RAG_K_RETRIEVER` | `4` |
 | `replay_history` | `RAG_REPLAY_HISTORY` | `True` |
 | `max_replay_history` | `RAG_MAX_REPLAY_HISTORY` | `5` |
