@@ -6,3 +6,6 @@ pytest
 pytest-mock
 faiss-cpu
 PyYAML
+pypdf
+unstructured
+docx2txt
