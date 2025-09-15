@@ -4,7 +4,12 @@ from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import (
+    TextLoader,
+    PyPDFLoader,
+    UnstructuredMarkdownLoader,
+    Docx2txtLoader,
+)
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from config import config
@@ -22,7 +27,7 @@ class RAGManager:
             if not os.path.exists(self.file_path):
                 raise FileNotFoundError(f"The file '{self.file_path}' does not exist.")
 
-            supported_extensions = ['.txt']
+            supported_extensions = ['.txt', '.pdf', '.md', '.docx']
             if not any(self.file_path.endswith(ext) for ext in supported_extensions):
                 raise ValueError(f"Unsupported file format. Please use one of {supported_extensions}.")
 
@@ -45,14 +50,31 @@ class RAGManager:
 
     def _create_index(self):
         print(f"Creating index from {self.file_path} using {self.embedding_model}...")
-        loader = TextLoader(self.file_path)
+        
+        loader_map = {
+            ".txt": TextLoader,
+            ".pdf": PyPDFLoader,
+            ".md": UnstructuredMarkdownLoader,
+            ".docx": Docx2txtLoader,
+        }
+        
+        file_extension = os.path.splitext(self.file_path)[1]
+        loader_class = loader_map.get(file_extension)
+        
+        if not loader_class:
+            raise ValueError(f"No loader found for file extension {file_extension}")
+
+        loader = loader_class(self.file_path)
         documents = loader.load()
+        
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
         docs = text_splitter.split_documents(documents)
+        
         embeddings = OllamaEmbeddings(model=self.embedding_model)
         self.vector_store = FAISS.from_documents(docs, embeddings)
         self.vector_store.save_local(self.index_path)
         print(f"Index saved to {self.index_path}")
+
 
     def _load_index(self):
         print(f"Loading index from {self.index_path} using {self.embedding_model}...")
