@@ -6,6 +6,11 @@ This project provides a command-line interface (CLI) to chat with your local tex
 
 - **Conversational Chat**: Remembers the context of the conversation for follow-up questions.
 - **Local First**: All components, from embeddings to generation models, run locally via Ollama.
+- **Multi-Format Support**: Process a variety of common file formats, including:
+    - PDF (`.pdf`)
+    - Markdown (`.md`)
+    - Microsoft Word (`.docx`)
+    - Plain Text (`.txt`)
 - **External Configuration**: Configure the system using a `config.yaml` file or environment variables.
 - **Automatic Indexing**: Automatically creates a vector index of your document on the first run and reuses it in subsequent sessions.
 - **Efficient Vector Storage**: Utilizes `FAISS` (Facebook AI Similarity Search) for fast and efficient in-memory vector storage.
@@ -31,7 +36,7 @@ The script orchestrates the following workflow:
 
 Before you begin, ensure you have the following installed:
 
-1.  **Python 3.9+**
+1.  **python3 3.9+**
 2.  **Ollama**: Make sure the Ollama service is running. You can download it from [ollama.com](https://ollama.com/).
 3.  **Ollama Models**: You need to have the specific models pulled. This project defaults to using:
     - `gemma3:270m` for chat.
@@ -47,10 +52,10 @@ Before you begin, ensure you have the following installed:
 
 1.  **Clone the Repository** (or download the files).
 
-2.  **Create `docs` Folder**: Create a directory named `docs` in the project root and place any `.txt` files you want to chat with inside it.
+2.  **Create `docs` Folder**: Create a directory named `docs` in the project root and place any of the supported files you want to chat with inside it.
     ```bash
     mkdir docs
-    mv your_document.txt docs/
+    mv your_document.pdf docs/
     ```
 
 3.  **Set up Python Environment**: It is highly recommended to use a virtual environment.
