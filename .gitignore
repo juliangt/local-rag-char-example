@@ -38,7 +38,6 @@ Pipfile.lock
 *.swp
 *.swo
 *~
-.DS_Store
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -122,3 +121,7 @@ dmypy.json
 
 # Profiling data
 .prof
+
+# Proyect specific 
+docs/
+indexes/

@@ -20,9 +20,9 @@ class InteractiveManager:
                 else:
                     answer = self.rag_manager.ask(query, self.chat_history)
                     print(f"\nAI: {answer}")
-                    if "The index is not set up" not in answer and config['replay_history']:
+                    if "The index is not set up" not in answer and config.get('replay_history', True):
                         self.chat_history.append((query, answer))
-                        if len(self.chat_history) > config['max_replay_history']:
+                        if len(self.chat_history) > config.get('max_replay_history', 5):
                             self.chat_history.pop(0)
 
             except (KeyboardInterrupt, EOFError):
@@ -34,7 +34,7 @@ class InteractiveManager:
     def handle_command(self, query):
         command, *args = query.lower().split()
         if command == '/exit':
-            raise KeyboardInterrupt
+            raise SystemExit
         elif command == '/clear':
             self.clear_index()
         elif command == '/reindex':
