@@ -36,7 +36,7 @@ The script orchestrates the following workflow:
 
 Before you begin, ensure you have the following installed:
 
-1.  **python3 3.9+**
+1.  **python 3.9+**
 2.  **Ollama**: Make sure the Ollama service is running. You can download it from [ollama.com](https://ollama.com/).
 3.  **Ollama Models**: You need to have the specific models pulled. This project defaults to using:
     - `gemma3:270m` for chat.
@@ -83,13 +83,9 @@ python3 -m pytest tests/
 
 ## Usage
 
-To start a chat session, run the `main.py` script from your terminal. You can optionally pass the name of a file in the `docs` directory as an argument. If no filename is provided, the system will attempt to use a default document or prompt you to select one.
+To start a chat session, run the `main.py` script from your terminal. The application will automatically discover all supported documents in the `docs` folder and start a session with the first document it finds.
 
 ```bash
-# Start with a specific document
-python3 main.py your_document.txt
-
-# Start without specifying a document (e.g., for interactive selection or default document)
 python3 main.py
 ```
 
@@ -100,9 +96,11 @@ python3 main.py
 
 Once in the chat, you can use the following commands:
 
-- `/clear`: Clears the current index. You will need to run `/reindex` to create a new one.
-- `/reindex`: Re-creates the index from the source document.
-- `/help`: Shows the list of available commands.
+- `/list_docs`: Lists all available documents from the `docs` folder.
+- `/use_doc <document_name>`: Switches the conversation to a different document.
+- `/clear`: Clears the index for the currently active document.
+- `/reindex`: Re-creates the index for the currently active document.
+- `/help`: Shows this list of available commands.
 - `/exit`: Exits the chat.
 
 ## Configuration

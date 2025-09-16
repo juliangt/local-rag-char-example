@@ -1,32 +1,23 @@
 import os
-import argparse
 from rag_manager import RAGManager
 from interactive_manager import InteractiveManager
 from config import config
-from file_manager import FileManager
 
 def main():
-    os.makedirs(config['index_path'], exist_ok=True)
-
-    parser = argparse.ArgumentParser(description="Chat with a document using RAG.")
-    parser.add_argument("file_name", type=str, nargs='?', default=None, help="Name or path of the file.")
-    args = parser.parse_args()
-
-    file_manager = FileManager()
-    file_path = file_manager.get_file_path(args.file_name)
-
-    if not file_path:
-        return
-
-    base_name = os.path.splitext(os.path.basename(file_path))[0]
-    index_path = os.path.join(config['index_path'], f"{base_name}_faiss_index")
+    # Ensure the root index directory exists
+    index_path = config.get('index_path')
+    if index_path:
+        os.makedirs(index_path, exist_ok=True)
 
     try:
-        rag_manager = RAGManager(file_path=file_path, index_path=index_path)
-    except (FileNotFoundError, ValueError):
+        rag_manager = RAGManager()
+        if not rag_manager.active_document:
+            return
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Failed to initialize RAG Manager: {e}")
         return
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred during initialization: {e}")
         return
 
     rag_manager.setup()

@@ -15,33 +15,48 @@ from langchain_core.messages import HumanMessage, AIMessage
 from config import config
 
 class RAGManager:
-    def __init__(self, file_path, index_path):
-        self.file_path = file_path
-        self.index_path = index_path
+    def __init__(self):
         self.embedding_model = config['embedding_model_path']
         self.chat_model = config['llm_model_path']
         self.vector_store = None
         self.chain = None
+        self.documents = self._discover_documents()
+        
+        if not self.documents:
+            print("No documents found in the 'docs' directory.")
+            self.file_path = None
+            self.index_path = None
+            self.active_document = None
+            return
+
+        self.active_document = self.documents[0]
+        self._set_paths(self.active_document)
 
         try:
-            if not os.path.exists(self.file_path):
-                raise FileNotFoundError(f"The file '{self.file_path}' does not exist.")
-
-            supported_extensions = ['.txt', '.pdf', '.md', '.docx']
-            if not any(self.file_path.endswith(ext) for ext in supported_extensions):
-                raise ValueError(f"Unsupported file format. Please use one of {supported_extensions}.")
-
             print(f"Attempting to initialize with embedding model: {self.embedding_model}")
             print(f"Attempting to initialize with chat model: {self.chat_model}")
+            print(f"Active document: {self.active_document}")
 
-        except (FileNotFoundError, ValueError) as e:
-            self._log_error(e)
-            print(f"Error: {e}")
-            raise
         except Exception as e:
             self._log_error(e)
             print(f"An unexpected error occurred during initialization: {e}")
             raise
+
+    def _discover_documents(self):
+        docs_path = config['docs_path']
+        supported_extensions = ['.txt', '.pdf', '.md', '.docx']
+        discovered_docs = []
+        if os.path.exists(docs_path):
+            for doc in os.listdir(docs_path):
+                if any(doc.endswith(ext) for ext in supported_extensions):
+                    discovered_docs.append(doc)
+        return sorted(discovered_docs)
+
+    def _set_paths(self, document_name):
+        self.active_document = document_name
+        self.file_path = os.path.join(config['docs_path'], document_name)
+        base_name = os.path.splitext(document_name)[0]
+        self.index_path = os.path.join(config['index_path'], f"{base_name}_faiss_index")
 
     def _log_error(self, error):
         with open("error.log", "a") as f:
@@ -122,3 +137,18 @@ class RAGManager:
 
         result = self.chain.invoke({"input": question, "chat_history": formatted_chat_history})
         return result.get('answer', "I couldn't find an answer.")
+
+    def switch_document(self, document_name):
+        if document_name not in self.documents:
+            print(f"Error: Document '{document_name}' not found.")
+            return
+
+        print(f"Switching to document '{document_name}'...")
+        self._set_paths(document_name)
+        
+        # Reload the index and chain
+        self.setup()
+        print(f"Successfully switched to document '{document_name}'.")
+
+    def list_documents(self):
+        return self.documents

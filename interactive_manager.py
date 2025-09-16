@@ -8,7 +8,10 @@ class InteractiveManager:
         self.chat_history = []
 
     def run(self):
-        print(f"\nChat with {os.path.basename(self.rag_manager.file_path)}! Type '/help' for a list of commands.")
+        if not self.rag_manager.active_document:
+            print("\nNo documents found in 'docs' folder. Please add documents and restart.")
+            return
+        print(f"\nChat with {self.rag_manager.active_document}! Type '/help' for a list of commands.")
         while True:
             try:
                 query = input("\nYou: ").strip()
@@ -39,6 +42,10 @@ class InteractiveManager:
             self.clear_index()
         elif command == '/reindex':
             self.reindex()
+        elif command == '/list_docs':
+            self.list_docs()
+        elif command == '/use_doc':
+            self.use_doc(args)
         elif command == '/help':
             self.show_help()
         else:
@@ -64,6 +71,27 @@ class InteractiveManager:
         self.rag_manager.setup()
         print("Re-indexing complete.")
 
+    def list_docs(self):
+        docs = self.rag_manager.list_documents()
+        if not docs:
+            print("No documents found.")
+            return
+
+        print("Available documents:")
+        for doc in docs:
+            if doc == self.rag_manager.active_document:
+                print(f"  - {doc} (active)")
+            else:
+                print(f"  - {doc}")
+
+    def use_doc(self, args):
+        if len(args) != 1:
+            print("Usage: /use_doc <document_name>")
+            return
+
+        doc_name = args[0]
+        self.rag_manager.switch_document(doc_name)
+
     def switch_model(self, args):
         if len(args) != 2:
             print("Usage: /model <embedding_model|chat_model> <model_name>")
@@ -85,8 +113,10 @@ class InteractiveManager:
     def show_help(self):
         print("""
 Available commands:
-  /clear          - Clear the current index.
-  /reindex        - Re-create the index from the source document.
+  /clear          - Clear the index for the active document.
+  /reindex        - Re-create the index for the active document.
+  /list_docs      - List available documents.
+  /use_doc <name>   - Switch to a different document.
   /model <type> <name> - Switch the embedding or chat model.
                     <type>: embedding_model | chat_model
                     <name>: name of the model
@@ -98,6 +128,8 @@ Available commands:
         suggestions = {
             "/clear": "Did you mean /clear?",
             "/reindex": "Did you mean /reindex?",
+            "/list_docs": "Did you mean /list_docs?",
+            "/use_doc": "Did you mean /use_doc <document_name>?",
             "/help": "Did you mean /help?",
             "/exit": "Did you mean /exit?",
         }
