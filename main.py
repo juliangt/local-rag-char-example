@@ -8,22 +8,21 @@ from file_manager import FileManager
 def main():
     os.makedirs(config['index_path'], exist_ok=True)
 
-    parser = argparse.ArgumentParser(description="Chat with a document using RAG.")
-    parser.add_argument("file_name", type=str, nargs='?', default=None, help="Name or path of the file.")
-    args = parser.parse_args()
-
     file_manager = FileManager()
-    file_path = file_manager.get_file_path(args.file_name)
+    file_paths = file_manager.get_all_file_paths()
 
-    if not file_path:
+    if not file_paths:
+        print("No documents found to process. Please add supported files to the 'docs' directory.")
         return
 
-    base_name = os.path.splitext(os.path.basename(file_path))[0]
-    index_path = os.path.join(config['index_path'], f"{base_name}_faiss_index")
+    # Use a generic index name for the combined index
+    index_name = "multi_doc_index"
+    index_path = os.path.join(config['index_path'], f"{index_name}_faiss_index")
 
     try:
-        rag_manager = RAGManager(file_path=file_path, index_path=index_path)
-    except (FileNotFoundError, ValueError):
+        rag_manager = RAGManager(file_paths=file_paths, index_path=index_path)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error during RAG Manager initialization: {e}")
         return
     except Exception as e:
         print(f"An unexpected error occurred: {e}")

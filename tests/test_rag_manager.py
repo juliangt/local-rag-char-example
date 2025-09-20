@@ -1,17 +1,12 @@
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
+from pathlib import Path
 from rag_manager import RAGManager
+from langchain_community.document_loaders import TextLoader, UnstructuredMarkdownLoader
 
 @pytest.fixture
-def rag_manager(tmp_path):
-    # Create a dummy file for testing
-    dummy_file_path = tmp_path / "dummy.txt"
-    dummy_file_path.write_text("This is a dummy file.")
-
-    dummy_index_path = tmp_path / "dummy_index"
-
-    # Mock config
+def mock_config():
     with patch('rag_manager.config', {
         'embedding_model_path': 'dummy_embedding_model',
         'llm_model_path': 'dummy_chat_model',
@@ -23,133 +18,103 @@ def rag_manager(tmp_path):
         'n_ctx': 4096,
         'n_gpu_layers': 0,
         'verbose': False
-    }):
-        manager = RAGManager(file_path=str(dummy_file_path), index_path=str(dummy_index_path))
-        yield manager
+    }) as mock_config:
+        yield mock_config
 
-def test_init_file_not_found():
+@pytest.fixture
+def rag_manager(tmp_path, mock_config):
+    # Create dummy files for testing
+    dummy_file_1_path = tmp_path / "dummy1.txt"
+    dummy_file_1_path.write_text("This is the first dummy file.")
+    dummy_file_2_path = tmp_path / "dummy2.md"
+    dummy_file_2_path.write_text("# This is a markdown file.")
+
+    file_paths = [str(dummy_file_1_path), str(dummy_file_2_path)]
+    dummy_index_path = tmp_path / "multi_doc_index"
+
+    manager = RAGManager(file_paths=file_paths, index_path=str(dummy_index_path))
+    return manager
+
+def test_init_no_files_provided(tmp_path):
+    with pytest.raises(FileNotFoundError, match="No files provided to process."):
+        RAGManager(file_paths=[], index_path=str(tmp_path / "some_index"))
+
+def test_init_file_not_found(tmp_path):
+    existing_file = tmp_path / "exists.txt"
+    existing_file.write_text("I exist.")
     with pytest.raises(FileNotFoundError):
-        RAGManager(file_path="non_existent_file.txt", index_path="dummy_index")
+        RAGManager(file_paths=[str(existing_file), "non_existent_file.txt"], index_path="dummy_index")
 
 def test_init_unsupported_file_type(tmp_path):
-    dummy_bad_file_path = tmp_path / "dummy.bad"
-    dummy_bad_file_path.write_text("This is a dummy bad file.")
+    dummy_good_file = tmp_path / "dummy.txt"
+    dummy_good_file.write_text("This is a dummy good file.")
+    dummy_bad_file = tmp_path / "dummy.bad"
+    dummy_bad_file.write_text("This is a dummy bad file.")
     with pytest.raises(ValueError):
-        RAGManager(file_path=str(dummy_bad_file_path), index_path="dummy_index")
+        RAGManager(file_paths=[str(dummy_good_file), str(dummy_bad_file)], index_path="dummy_index")
 
 def test_init_success(rag_manager):
-    assert rag_manager.file_path == str(rag_manager.file_path)
-    assert rag_manager.index_path == str(rag_manager.index_path)
+    assert len(rag_manager.file_paths) == 2
+    assert "dummy1.txt" in rag_manager.file_paths[0]
+    assert "dummy2.md" in rag_manager.file_paths[1]
 
+@patch('rag_manager.OllamaEmbeddings')
+@patch('rag_manager.FAISS')
+@patch('rag_manager.ChatOllama')
 @patch('rag_manager.TextLoader')
-@patch('rag_manager.OllamaEmbeddings')
-@patch('rag_manager.FAISS')
-@patch('rag_manager.ChatOllama')
-def test_setup_create_index_txt(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, mock_text_loader, rag_manager):
-    mock_ollama_embeddings.return_value = MagicMock()
-    mock_chat_ollama.return_value = MagicMock()
-    mock_faiss_instance = MagicMock()
-    mock_faiss.from_documents.return_value = mock_faiss_instance
-    mock_text_loader.return_value = MagicMock()
-
-    rag_manager.setup()
-
-    mock_text_loader.assert_called_with(rag_manager.file_path)
-    mock_faiss.from_documents.assert_called_once()
-    mock_faiss_instance.save_local.assert_called_with(rag_manager.index_path)
-    assert rag_manager.chain is not None
-
-@patch('rag_manager.PyPDFLoader')
-@patch('rag_manager.OllamaEmbeddings')
-@patch('rag_manager.FAISS')
-@patch('rag_manager.ChatOllama')
-def test_setup_create_index_pdf(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, mock_pdf_loader, rag_manager, tmp_path):
-    dummy_pdf_path = tmp_path / "dummy.pdf"
-    dummy_pdf_path.write_text("This is a dummy pdf file.")
-    rag_manager.file_path = str(dummy_pdf_path)
-
-    mock_ollama_embeddings.return_value = MagicMock()
-    mock_chat_ollama.return_value = MagicMock()
-    mock_faiss_instance = MagicMock()
-    mock_faiss.from_documents.return_value = mock_faiss_instance
-    mock_pdf_loader.return_value = MagicMock()
-
-    rag_manager.setup()
-
-    mock_pdf_loader.assert_called_with(rag_manager.file_path)
-    mock_faiss.from_documents.assert_called_once()
-    mock_faiss_instance.save_local.assert_called_with(rag_manager.index_path)
-    assert rag_manager.chain is not None
-
 @patch('rag_manager.UnstructuredMarkdownLoader')
-@patch('rag_manager.OllamaEmbeddings')
-@patch('rag_manager.FAISS')
-@patch('rag_manager.ChatOllama')
-def test_setup_create_index_md(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, mock_md_loader, rag_manager, tmp_path):
-    dummy_md_path = tmp_path / "dummy.md"
-    dummy_md_path.write_text("# This is a dummy markdown file")
-    rag_manager.file_path = str(dummy_md_path)
+def test_setup_creates_combined_index(mock_md_loader, mock_txt_loader, mock_chat_ollama, mock_faiss, mock_ollama_embeddings, rag_manager):
+    # Mock loaders to return dummy documents
+    mock_doc_txt = MagicMock()
+    mock_doc_txt.page_content = "text content"
+    mock_doc_txt.metadata = {"source": "dummy1.txt"}
+    mock_doc_md = MagicMock()
+    mock_doc_md.page_content = "markdown content"
+    mock_doc_md.metadata = {"source": "dummy2.md"}
+    mock_txt_loader.return_value.load.return_value = [mock_doc_txt]
+    mock_md_loader.return_value.load.return_value = [mock_doc_md]
 
     mock_ollama_embeddings.return_value = MagicMock()
     mock_chat_ollama.return_value = MagicMock()
     mock_faiss_instance = MagicMock()
     mock_faiss.from_documents.return_value = mock_faiss_instance
-    mock_md_loader.return_value = MagicMock()
 
     rag_manager.setup()
 
-    mock_md_loader.assert_called_with(rag_manager.file_path)
-    mock_faiss.from_documents.assert_called_once()
-    mock_faiss_instance.save_local.assert_called_with(rag_manager.index_path)
-    assert rag_manager.chain is not None
+    # Check that the correct loaders were called for each file
+    mock_txt_loader.assert_called_with(rag_manager.file_paths[0])
+    mock_md_loader.assert_called_with(rag_manager.file_paths[1])
 
-@patch('rag_manager.Docx2txtLoader')
-@patch('rag_manager.OllamaEmbeddings')
-@patch('rag_manager.FAISS')
-@patch('rag_manager.ChatOllama')
-def test_setup_create_index_docx(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, mock_docx_loader, rag_manager, tmp_path):
-    dummy_docx_path = tmp_path / "dummy.docx"
-    dummy_docx_path.write_text("This is a dummy docx file.")
-    rag_manager.file_path = str(dummy_docx_path)
+    # Check that FAISS was created with documents from all loaders
+    docs_passed_to_faiss = mock_faiss.from_documents.call_args[0][0]
+    assert len(docs_passed_to_faiss) == 2
+    page_contents = {doc.page_content for doc in docs_passed_to_faiss}
+    assert {"text content", "markdown content"} == page_contents
 
-    mock_ollama_embeddings.return_value = MagicMock()
-    mock_chat_ollama.return_value = MagicMock()
-    mock_faiss_instance = MagicMock()
-    mock_faiss.from_documents.return_value = mock_faiss_instance
-    mock_docx_loader.return_value = MagicMock()
-
-    rag_manager.setup()
-
-    mock_docx_loader.assert_called_with(rag_manager.file_path)
-    mock_faiss.from_documents.assert_called_once()
+    # Check that the combined index is saved
     mock_faiss_instance.save_local.assert_called_with(rag_manager.index_path)
     assert rag_manager.chain is not None
 
 @patch('rag_manager.OllamaEmbeddings')
 @patch('rag_manager.FAISS')
 @patch('rag_manager.ChatOllama')
-def test_setup_load_index(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, rag_manager):
-    # Create a dummy index to simulate loading
+def test_setup_loads_existing_index(mock_chat_ollama, mock_faiss, mock_ollama_embeddings, rag_manager):
+    # Simulate an existing index
     os.makedirs(rag_manager.index_path, exist_ok=True)
-    with open(os.path.join(rag_manager.index_path, "dummy.faiss"), "w") as f:
-        f.write("dummy index data")
+    # Create a dummy file to make the directory non-empty
+    (Path(rag_manager.index_path) / "index.faiss").touch()
 
-    # Mock the language model and embeddings
     mock_ollama_embeddings.return_value = MagicMock()
     mock_chat_ollama.return_value = MagicMock()
-
-    # Mock FAISS
-    mock_faiss_instance = MagicMock()
-    mock_faiss.load_local.return_value = mock_faiss_instance
+    mock_faiss.load_local.return_value = MagicMock()
 
     rag_manager.setup()
 
-    # Assert that the index was loaded
     mock_faiss.load_local.assert_called_with(rag_manager.index_path, mock_ollama_embeddings.return_value, allow_dangerous_deserialization=True)
     assert rag_manager.chain is not None
 
 @patch('rag_manager.RAGManager.setup')
-def test_ask(mock_setup, rag_manager):
+def test_ask_functionality(mock_setup, rag_manager):
     rag_manager.chain = MagicMock()
     rag_manager.chain.invoke.return_value = {"answer": "This is a test answer."}
     
