@@ -16,6 +16,7 @@ DEFAULT_CONFIG = {
     'chunk_size': 1024,
     'chunk_overlap': 100,
     'k_retriever': 4,
+        'supported_extensions': ['.txt', '.pdf', '.md', '.docx'],
     'replay_history': True,
     'max_replay_history': 5,
     'temperature': 0.7,

@@ -17,7 +17,8 @@ def mock_config():
         'max_new_tokens': 512,
         'n_ctx': 4096,
         'n_gpu_layers': 0,
-        'verbose': False
+        'verbose': False,
+        'supported_extensions': ['.txt', '.pdf', '.md', '.docx']
     }) as mock_config:
         yield mock_config
 

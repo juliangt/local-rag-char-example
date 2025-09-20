@@ -31,7 +31,7 @@ class RAGManager:
                 if not os.path.exists(file_path):
                     raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
-                supported_extensions = ['.txt', '.pdf', '.md', '.docx']
+                supported_extensions = config['supported_extensions']
                 if not any(file_path.endswith(ext) for ext in supported_extensions):
                     raise ValueError(f"Unsupported file format for {os.path.basename(file_path)}. Please use one of {supported_extensions}.")
 
