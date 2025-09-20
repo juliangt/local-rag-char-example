@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -13,6 +14,7 @@ from langchain_community.document_loaders import (
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from config import config
+from cache_manager import CacheManager
 
 class RAGManager:
     def __init__(self, file_paths, index_path):
@@ -22,6 +24,7 @@ class RAGManager:
         self.chat_model = config['llm_model_path']
         self.vector_store = None
         self.chain = None
+        self.cache_manager = CacheManager()
 
         try:
             if not self.file_paths:
@@ -54,40 +57,58 @@ class RAGManager:
 
     def _create_index(self):
         print(f"Creating index from {len(self.file_paths)} file(s) using {self.embedding_model}...")
-        
+
         loader_map = {
             ".txt": TextLoader,
             ".pdf": PyPDFLoader,
             ".md": UnstructuredMarkdownLoader,
             ".docx": Docx2txtLoader,
         }
-        
-        all_documents = []
-        for file_path in self.file_paths:
+
+        def _process_file(file_path):
+            # Check cache first
+            cached_docs = self.cache_manager.get(file_path, self.embedding_model)
+            if cached_docs:
+                print(f"Loading cached documents for {os.path.basename(file_path)}.")
+                return cached_docs
+
+            # If not in cache, process the file
+            print(f"Processing {os.path.basename(file_path)}...")
             file_extension = os.path.splitext(file_path)[1]
             loader_class = loader_map.get(file_extension)
 
             if not loader_class:
                 print(f"Warning: No loader found for file extension {file_extension}. Skipping {os.path.basename(file_path)}.")
-                continue
+                return []
 
             try:
                 loader = loader_class(file_path)
                 documents = loader.load()
-                all_documents.extend(documents)
-                print(f"Loaded {os.path.basename(file_path)}.")
+
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
+                docs = text_splitter.split_documents(documents)
+
+                self.cache_manager.set(file_path, self.embedding_model, docs)
+                print(f"Loaded and cached {os.path.basename(file_path)}.")
+                return docs
             except Exception as e:
                 print(f"Error loading {os.path.basename(file_path)}: {e}")
+                return []
 
-        if not all_documents:
+        all_docs = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_docs = {executor.submit(_process_file, fp): fp for fp in self.file_paths}
+            for future in concurrent.futures.as_completed(future_to_docs):
+                docs = future.result()
+                if docs:
+                    all_docs.extend(docs)
+
+        if not all_docs:
             print("No documents were loaded. Index not created.")
             return
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
-        docs = text_splitter.split_documents(all_documents)
-        
         embeddings = OllamaEmbeddings(model=self.embedding_model)
-        self.vector_store = FAISS.from_documents(docs, embeddings)
+        self.vector_store = FAISS.from_documents(all_docs, embeddings)
         self.vector_store.save_local(self.index_path)
         print(f"Combined index for {len(self.file_paths)} file(s) saved to {self.index_path}")
 

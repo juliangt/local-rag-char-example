@@ -123,3 +123,49 @@ def test_ask_functionality(mock_setup, rag_manager):
     
     assert answer == "This is a test answer."
     rag_manager.chain.invoke.assert_called_once()
+
+@patch('rag_manager.OllamaEmbeddings')
+@patch('rag_manager.FAISS')
+@patch('rag_manager.ChatOllama')
+@patch('rag_manager.CacheManager')
+def test_create_index_uses_cache(mock_cache_manager, mock_chat_ollama, mock_faiss, mock_ollama_embeddings, rag_manager, tmp_path):
+    """Test that _create_index uses the cache and avoids reprocessing."""
+    mock_cache_instance = mock_cache_manager.return_value
+    mock_cache_instance.get.return_value = [MagicMock(page_content="cached content", metadata={"source": "dummy1.txt"})]
+
+    rag_manager.cache_manager = mock_cache_instance
+
+    with patch.object(rag_manager, '_create_index', wraps=rag_manager._create_index) as _create_index_spy:
+        rag_manager.setup()
+
+        # Check that cache was used
+        mock_cache_instance.get.assert_called()
+
+        # Check that new data was not set to cache
+        mock_cache_instance.set.assert_not_called()
+
+@patch('rag_manager.OllamaEmbeddings')
+@patch('rag_manager.FAISS')
+@patch('rag_manager.ChatOllama')
+@patch('rag_manager.CacheManager')
+def test_create_index_processes_and_sets_cache(mock_cache_manager, mock_chat_ollama, mock_faiss, mock_ollama_embeddings, rag_manager, tmp_path):
+    """Test that _create_index processes a file and sets the cache if not found."""
+    mock_cache_instance = mock_cache_manager.return_value
+    mock_cache_instance.get.return_value = None  # Cache miss
+
+    rag_manager.cache_manager = mock_cache_instance
+
+    with patch.object(rag_manager, '_create_index', wraps=rag_manager._create_index) as _create_index_spy:
+        with patch('rag_manager.TextLoader') as mock_text_loader:
+            mock_doc = MagicMock()
+            mock_doc.page_content = "text content"
+            mock_doc.metadata = {"source": "dummy1.txt"}
+            mock_text_loader.return_value.load.return_value = [mock_doc]
+
+            rag_manager.setup()
+
+            # Check that cache was checked
+            mock_cache_instance.get.assert_called()
+
+            # Check that new data was set to cache
+            mock_cache_instance.set.assert_called()
