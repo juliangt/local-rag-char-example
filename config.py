@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     'embedding_model_path': 'embeddinggemma',
     'index_path': './indexes',
     'docs_path': './docs',
+    'cache_path': './cache',
     'chunk_size': 1024,
     'chunk_overlap': 100,
     'k_retriever': 4,
