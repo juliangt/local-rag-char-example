@@ -7,7 +7,18 @@ from config import config
 def interactive_manager():
     rag_manager = MagicMock()
     rag_manager.index_path = "dummy_index_path"
+    # Set file_paths to simulate having multiple documents loaded
+    rag_manager.file_paths = ["/docs/test1.txt", "/docs/test2.pdf"]
     return InteractiveManager(rag_manager)
+
+def test_run_welcome_message(interactive_manager, capsys):
+    # Test that the initial welcome message is correct
+    with patch('builtins.input', side_effect=['/exit']):
+        with pytest.raises(SystemExit):
+            interactive_manager.run()
+
+    captured = capsys.readouterr()
+    assert "Chat with test1.txt, test2.pdf! Type '/help' for a list of commands." in captured.out
 
 @patch('interactive_manager.InteractiveManager.clear_index')
 @patch('builtins.input', side_effect=['/clear', '/exit'])
