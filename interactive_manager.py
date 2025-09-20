@@ -8,7 +8,9 @@ class InteractiveManager:
         self.chat_history = []
 
     def run(self):
-        print(f"\nChat with {os.path.basename(self.rag_manager.file_path)}! Type '/help' for a list of commands.")
+        file_names = [os.path.basename(p) for p in self.rag_manager.file_paths]
+        display_name = ", ".join(file_names)
+        print(f"\nChat with {display_name}! Type '/help' for a list of commands.")
         while True:
             try:
                 query = input("\nYou: ").strip()

@@ -15,8 +15,8 @@ from langchain_core.messages import HumanMessage, AIMessage
 from config import config
 
 class RAGManager:
-    def __init__(self, file_path, index_path):
-        self.file_path = file_path
+    def __init__(self, file_paths, index_path):
+        self.file_paths = file_paths
         self.index_path = index_path
         self.embedding_model = config['embedding_model_path']
         self.chat_model = config['llm_model_path']
@@ -24,12 +24,16 @@ class RAGManager:
         self.chain = None
 
         try:
-            if not os.path.exists(self.file_path):
-                raise FileNotFoundError(f"The file '{self.file_path}' does not exist.")
+            if not self.file_paths:
+                raise FileNotFoundError("No files provided to process.")
 
-            supported_extensions = ['.txt', '.pdf', '.md', '.docx']
-            if not any(self.file_path.endswith(ext) for ext in supported_extensions):
-                raise ValueError(f"Unsupported file format. Please use one of {supported_extensions}.")
+            for file_path in self.file_paths:
+                if not os.path.exists(file_path):
+                    raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+                supported_extensions = config['supported_extensions']
+                if not any(file_path.endswith(ext) for ext in supported_extensions):
+                    raise ValueError(f"Unsupported file format for {os.path.basename(file_path)}. Please use one of {supported_extensions}.")
 
             print(f"Attempting to initialize with embedding model: {self.embedding_model}")
             print(f"Attempting to initialize with chat model: {self.chat_model}")
@@ -49,7 +53,7 @@ class RAGManager:
             f.write(str(error))
 
     def _create_index(self):
-        print(f"Creating index from {self.file_path} using {self.embedding_model}...")
+        print(f"Creating index from {len(self.file_paths)} file(s) using {self.embedding_model}...")
         
         loader_map = {
             ".txt": TextLoader,
@@ -58,22 +62,34 @@ class RAGManager:
             ".docx": Docx2txtLoader,
         }
         
-        file_extension = os.path.splitext(self.file_path)[1]
-        loader_class = loader_map.get(file_extension)
-        
-        if not loader_class:
-            raise ValueError(f"No loader found for file extension {file_extension}")
+        all_documents = []
+        for file_path in self.file_paths:
+            file_extension = os.path.splitext(file_path)[1]
+            loader_class = loader_map.get(file_extension)
 
-        loader = loader_class(self.file_path)
-        documents = loader.load()
-        
+            if not loader_class:
+                print(f"Warning: No loader found for file extension {file_extension}. Skipping {os.path.basename(file_path)}.")
+                continue
+
+            try:
+                loader = loader_class(file_path)
+                documents = loader.load()
+                all_documents.extend(documents)
+                print(f"Loaded {os.path.basename(file_path)}.")
+            except Exception as e:
+                print(f"Error loading {os.path.basename(file_path)}: {e}")
+
+        if not all_documents:
+            print("No documents were loaded. Index not created.")
+            return
+
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=config['chunk_size'], chunk_overlap=config['chunk_overlap'])
-        docs = text_splitter.split_documents(documents)
+        docs = text_splitter.split_documents(all_documents)
         
         embeddings = OllamaEmbeddings(model=self.embedding_model)
         self.vector_store = FAISS.from_documents(docs, embeddings)
         self.vector_store.save_local(self.index_path)
-        print(f"Index saved to {self.index_path}")
+        print(f"Combined index for {len(self.file_paths)} file(s) saved to {self.index_path}")
 
 
     def _load_index(self):
